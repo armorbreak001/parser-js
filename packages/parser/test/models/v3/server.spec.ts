@@ -285,6 +285,40 @@ describe('Server Model', function () {
       expect(Array.isArray(d.security())).toEqual(true);
       expect(d.security()).toHaveLength(0);
     });
+
+    it('should support Array methods (map, filter, find) on SecurityRequirements — fixes #874', function() {
+      const doc = serializeInput<v3.ServerObject>({ 
+        security: [
+          { type: 'apiKey', name: 'api_key' },
+          { type: 'http', scheme: 'bearer' },
+        ] 
+      });
+      const d = new Server(doc, { pointer: '/servers/test' } as any);
+      const security = d.security();
+      
+      // SecurityRequirements extends Collection which extends Array
+      // map() should work (was throwing "Spread syntax requires ...iterable[Symbol.iterator]")
+      const sr = security[0];
+      const mapped = sr.map((req: any) => req.scheme().type());
+      expect(mapped).toEqual(['apiKey']);
+      
+      // filter should also work
+      const filtered = sr.filter((req: any) => req.scheme().type() === 'apiKey');
+      expect(filtered).toHaveLength(1);
+      
+      // find should work
+      const found = sr.find((req: any) => req.scheme().type() === 'apiKey');
+      expect(found).toBeDefined();
+      
+      // forEach and for...of should still work
+      let count = 0;
+      sr.forEach(() => { count++; });
+      expect(count).toBe(1);
+      
+      // reduce should work
+      const types = sr.reduce((acc: string[], req: any) => [...acc, req.scheme().type()], [] as string[]);
+      expect(types).toEqual(['apiKey']);
+    });
   });
 
   describe('mixins', function () {
